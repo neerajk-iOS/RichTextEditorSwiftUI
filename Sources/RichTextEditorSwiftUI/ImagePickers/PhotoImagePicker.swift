@@ -62,3 +62,9 @@ public struct PhotoLibraryPicker: UIViewControllerRepresentable {
         }
     }
 }
+
+
+enum ImageSourceType {
+    case camera
+    case photoLibrary
+}
