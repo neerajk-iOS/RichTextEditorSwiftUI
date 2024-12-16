@@ -29,7 +29,7 @@
 ### Using Swift Package Manager
 
 1. In Xcode, go to **File > Add Packages**.
-2. Enter the repository URL: `https://github.com/your-username/RichTextEditorSwiftUI`.
+2. Enter the repository URL: `(https://github.com/neerajk-iOS/RichTextEditorSwiftUI)`.
 3. Select the version and add it to your project.
 
 ---
