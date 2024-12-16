@@ -12,6 +12,11 @@ enum PickerType {
 }
     // MARK: - RichTextEditorViewModel
 public class RichTextEditorViewModel: ObservableObject {
+    
+    public init() {
+        // No additional setup needed for now
+    }
+    
     @Published var text = NSAttributedString(string: "Type here...")
     @Published var isBold = false
     @Published var isItalic = false
@@ -159,6 +164,12 @@ public class RichTextEditorViewModel: ObservableObject {
         applyFormatting()
     }
     
+    // MARK: - Undo and Redo
+    func saveStateForUndo() {
+        undoStack.append(text)
+        redoStack.removeAll() // Clear redo stack whenever a new action is performed
+    }
+    
     func undo() {
         guard let lastState = undoStack.popLast() else { return }
         redoStack.append(text)
@@ -170,11 +181,7 @@ public class RichTextEditorViewModel: ObservableObject {
         undoStack.append(text)
         text = lastState
     }
-    
-    private func saveStateForUndo() {
-        undoStack.append(text)
-        redoStack.removeAll()
-    }
+
     
     func alignLeft() {
         applyParagraphStyle { style in
@@ -223,9 +230,13 @@ public class RichTextEditorViewModel: ObservableObject {
     }
     
     func addCodeSnippet() {
-        let codeSnippet = NSAttributedString(string: "Code snippet", attributes: [.font: UIFont(name: "Courier", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)])
-        text = NSMutableAttributedString(attributedString: text).appending(attributedString: codeSnippet)
-    }
+           let codeSnippetText = selectedRange.length > 0 ? (text.string as NSString).substring(with: selectedRange) : "Code snippet"
+           let attributedCodeSnippet = NSAttributedString(
+               string: codeSnippetText,
+               attributes: [.font: UIFont(name: "Courier", size: 14) ?? UIFont.systemFont(ofSize: 14)]
+           )
+           updateText(with: attributedCodeSnippet)
+       }
     
     func addQuote() {
         let quote = NSAttributedString(string: "\"Quote\"", attributes: [.font: UIFont.italicSystemFont(ofSize: fontSize)])
@@ -289,26 +300,6 @@ public class RichTextEditorViewModel: ObservableObject {
         text = mutableText
     }
     
-//    func applyFormatting() {
-//        saveStateForUndo()
-//        
-//        
-//        
-//            // Check if no text is selected (cursor is just placed somewhere)
-//        if selectedRange.length == 0 {
-//                // Apply formatting starting from the current cursor position to the end of the typed text
-//            let updatedText = NSMutableAttributedString(attributedString: text)
-//            let rangeToUpdate = NSRange(location: selectedRange.location, length: updatedText.length - selectedRange.location)
-//            updatedText.addAttributes(currentAttributes, range: rangeToUpdate)
-//            text = updatedText
-//        } else {
-//                // Apply formatting to the selected text
-//            let updatedText = NSMutableAttributedString(attributedString: text)
-//            updatedText.addAttributes(currentAttributes, range: selectedRange)
-//            text = updatedText
-//        }
-//    }
-    
     private func applyParagraphStyle(_ update: (NSMutableParagraphStyle) -> Void) {
         let updatedText = NSMutableAttributedString(attributedString: text)
         let paragraphStyle = NSMutableParagraphStyle()
@@ -333,20 +324,6 @@ public class RichTextEditorViewModel: ObservableObject {
               ]
           )
           text = NSMutableAttributedString(attributedString: text).appending(attributedString: hyperlink)
-      }
-
-      func styleHashtags() {
-          let regex = try! NSRegularExpression(pattern: "#\\w+")
-          let matches = regex.matches(in: text.string, range: NSRange(location: 0, length: text.length))
-
-          let mutableText = NSMutableAttributedString(attributedString: text)
-          for match in matches {
-              mutableText.addAttributes([
-                  .foregroundColor: UIColor.systemBlue,
-                  .font: UIFont.boldSystemFont(ofSize: UIFont.systemFontSize)
-              ], range: match.range)
-          }
-          text = mutableText
       }
 
       func styleAngleBrackets() {
@@ -386,6 +363,64 @@ public class RichTextEditorViewModel: ObservableObject {
        func setFontWeight(_ weight: UIFont.Weight) {
            selectedFontWeight = weight
            applyFormatting()
+       }
+    
+}
+
+extension RichTextEditorViewModel {
+    
+    // Validators
+      private func isValidURL(_ string: String) -> Bool {
+          guard let url = URL(string: string) else { return false }
+          return UIApplication.shared.canOpenURL(url)
+      }
+
+      private func isValidHashtag(_ string: String) -> Bool {
+          let regex = "^#[a-zA-Z0-9_]+$"
+          return NSPredicate(format: "SELF MATCHES %@", regex).evaluate(with: string)
+      }
+    
+    // Apply attributes to selected text or append new attributes
+    // MARK: - Rich Text Actions
+       func addHyperlink(_ urlString: String) {
+           guard isValidURL(urlString) else { return }
+           saveStateForUndo()
+
+           let hyperlinkText = selectedRange.length > 0 ? (text.string as NSString).substring(with: selectedRange) : "Hyperlink"
+           let attributedHyperlink = NSAttributedString(
+               string: hyperlinkText,
+               attributes: [.link: URL(string: urlString)!, .underlineStyle: NSUnderlineStyle.single.rawValue]
+           )
+           updateText(with: attributedHyperlink)
+       }
+
+    func styleHashtags() {
+          guard selectedRange.length > 0 else { return }
+          saveStateForUndo()
+
+          let selectedText = (text.string as NSString).substring(with: selectedRange)
+          guard isValidHashtag(selectedText) else { return }
+
+          let mutableText = NSMutableAttributedString(attributedString: text)
+          mutableText.addAttributes([
+              .foregroundColor: UIColor.systemBlue,
+              .font: UIFont.boldSystemFont(ofSize: UIFont.systemFontSize)
+          ], range: selectedRange)
+          text = mutableText
+      }
+
+
+       // Helper: Update selected text or append if no selection
+       private func updateText(with attributedString: NSAttributedString) {
+           let mutableText = NSMutableAttributedString(attributedString: text)
+
+           if selectedRange.length > 0 {
+               mutableText.replaceCharacters(in: selectedRange, with: attributedString)
+           } else {
+               mutableText.append(attributedString)
+           }
+
+           text = mutableText
        }
     
 }
