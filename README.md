@@ -23,7 +23,7 @@
 
 ### Requirements
 
-- **iOS**: 14.0 or later
+- **iOS**: 16.0 or later
 - **Swift**: 5.7 or later
 
 ### Using Swift Package Manager
