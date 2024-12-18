@@ -3,7 +3,7 @@
 /// A SwiftUI view designed for rendering and editing rich text content with full customization.
 /// This view integrates a rich text editor, toolbar, and external pickers for media and formatting options.
 ///
-/// - Author: Neeraj Kumar
+/// - Author: Neeraj
 /// - Created: 13/12/24
 ///
 
@@ -46,11 +46,16 @@ public struct RichTextView: View {
         VStack {
             // Render the rich text editor
             RichTextField(text: $viewModel.text, config: toolbarConfig)
-                .environmentObject(viewModel)
-                .padding()
+                      .environmentObject(viewModel)
+                      .padding()
         }
         .background(Color(UIColor.systemGroupedBackground).edgesIgnoringSafeArea(.all))
         .modifier(PickerSheetsModifier(viewModel: viewModel, config: PickerSheetConfig()))
+//        .task{
+//            viewModel.hyperlinkColorFromCOnfig = toolbarConfig.hyperlinkColor
+//            viewModel.hashtagColorFromConfig = toolbarConfig.hashtagColor
+//
+//        }
     }
 }
 

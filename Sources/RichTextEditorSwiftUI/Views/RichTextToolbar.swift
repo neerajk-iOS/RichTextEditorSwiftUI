@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-
 /// A customizable toolbar for managing rich text editor actions.
 ///
 /// The `RichTextToolbar` dynamically renders button groups, dropdowns,
@@ -59,15 +58,25 @@ public struct RichTextToolbar: View {
 
     /// Creates a normal button.
     private func normalButton(for buttonConfig: RichTextToolbarConfig.ButtonConfig) -> some View {
-        Button(action: {
-            handleAction(for: buttonConfig.type)
-        }) {
-            Image(systemName: buttonConfig.icon)
-                .resizable()
-                .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                .foregroundColor(buttonConfig.tint)
-        }
-        .buttonStyle(PlainButtonStyle())
+        
+        let isActive: Bool
+           switch buttonConfig.type {
+           case .bold: isActive = viewModel.isBold
+           case .italic: isActive = viewModel.isItalic
+           case .underline: isActive = viewModel.isUnderline
+           case .strikethrough: isActive = viewModel.isStrikethrough
+           default: isActive = false
+           }
+
+           return Button(action: {
+               handleAction(for: buttonConfig.type)
+           }) {
+               Image(systemName: buttonConfig.icon)
+                   .resizable()
+                   .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                   .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
+           }
+           .buttonStyle(PlainButtonStyle())
     }
 
     /// Creates a dropdown button for different dropdown configurations.
@@ -158,9 +167,9 @@ public struct RichTextToolbar: View {
         case .alignLeft: viewModel.alignLeft()
         case .alignCenter: viewModel.alignCenter()
         case .alignRight: viewModel.alignRight()
-        case .bulletList: viewModel.addBulletList()
-        case .numberedList: viewModel.addNumberedList()
-        case .addQuote: viewModel.addQuote()
+        case .bulletList: viewModel.toggleBulletList()
+        case .numberedList: viewModel.toggleNumberedList()
+        case .addQuote: viewModel.toggleQuote()
         case .codeSnippet: viewModel.addCodeSnippet()
         case .insertImage: viewModel.toggleImagePickerDropdown()
         case .cameraPicker: viewModel.showCameraPicker()
@@ -168,8 +177,11 @@ public struct RichTextToolbar: View {
         case .insertFile: viewModel.showFilePicker()
         case .textColorPicker: viewModel.showTextForegroundColorPicker()
         case .backgroundColorPicker: viewModel.showTextBackgroundColorPicker()
-        case .hyperlink: viewModel.addHyperlink()
-        case .hashtags: viewModel.styleHashtags()
+        case .hyperlink:
+            viewModel.isHyperlinkPromptPresented = true
+            viewModel.hyperlinkURL = "" // Reset previous URL input
+
+        case .hashtags: viewModel.toggleHashtag()
         case .angleBrackets: viewModel.styleAngleBrackets()
         case .fontPicker: viewModel.showFontPickerMenu.toggle()
         case .cIndentMenu: viewModel.showCIndentMenu.toggle()

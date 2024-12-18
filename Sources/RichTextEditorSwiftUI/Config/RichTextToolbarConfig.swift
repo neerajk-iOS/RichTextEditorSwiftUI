@@ -9,6 +9,27 @@ import SwiftUI
 // MARK: - RichTextToolbarConfig
 public struct RichTextToolbarConfig {
     
+    // New properties for customization
+      public var hashtagColor: UIColor = .systemBlue
+      public var hyperlinkColor: UIColor = .systemRed
+      public var textFieldBackgroundColor: UIColor = .white
+    
+    public init(
+           buttonGroups: [[ButtonConfig]] = [],
+           toolbarHeight: CGFloat = 50,
+           spacing: CGFloat = 8,
+           hashtagColor: UIColor = .lightGray,
+           hyperlinkColor: UIColor = .link,
+           textFieldBackgroundColor: UIColor = .white
+       ) {
+           self.buttonGroups = buttonGroups
+           self.spacing = spacing
+           self.toolbarHeight = toolbarHeight
+           self.hashtagColor = hashtagColor
+           self.hyperlinkColor = hyperlinkColor
+           self.textFieldBackgroundColor = textFieldBackgroundColor
+       }
+    
     // MARK: - ButtonType Enum
     public enum ButtonType: CaseIterable {
         case undo, redo, bold, italic, underline, strikethrough

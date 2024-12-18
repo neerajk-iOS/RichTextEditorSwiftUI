@@ -22,13 +22,14 @@ public class RichTextEditorViewModel: ObservableObject {
     @Published var isItalic = false
     @Published var isUnderline = false
     @Published var isStrikethrough = false
+    
     @Published var isPickerPresented = false
     @Published var isFilePickerPresented = false
     @Published var isCameraPickerPresented = false
     @Published var isPhotoLibraryPickerPresented = false
     @Published var showingImagePickerDropdown = false // Tracks visibility of the Image Picker dropdown
 
-    private var fontSize: CGFloat = UIFont.systemFontSize
+    var fontSize: CGFloat = UIFont.systemFontSize
     @Published var textForegroundColor: UIColor = .black
     @Published var textBackgroundColor: UIColor = .white
     
@@ -47,7 +48,18 @@ public class RichTextEditorViewModel: ObservableObject {
     @Published var availableFonts: [String] = UIFont.familyNames
     @Published var selectedFontFamily: String = UIFont.systemFont(ofSize: UIFont.systemFontSize).familyName
     @Published var selectedFontWeight: UIFont.Weight = .regular
+    
+    @Published var isHyperlinkPromptPresented = false
+    @Published var hyperlinkURL: String = ""
+    @Published var hyperlinkColorFromCOnfig: UIColor = .link
+    @Published var hashtagColorFromConfig: UIColor = .lightGray
 
+    @Published var isBulletingActive = false
+    @Published var isNumberedBulletActive = false
+    @Published var needsUpdate = false
+
+    
+    private var currentBulletNumber = 1
     // New Font Weights Section
        let fontWeights: [String: UIFont.Weight] = [
            "Regular": .regular,
@@ -62,7 +74,7 @@ public class RichTextEditorViewModel: ObservableObject {
        ]
 
 
-    private var currentAttributes: [NSAttributedString.Key: Any] {
+    var currentAttributes: [NSAttributedString.Key: Any] {
         
         var attributes: [NSAttributedString.Key: Any] = [
             .font: selectedFont.withSize(fontSize)
@@ -74,13 +86,16 @@ public class RichTextEditorViewModel: ObservableObject {
             attributes[.font] = font
         }
         
-        if isBold {
-            attributes[.font] = UIFont.boldSystemFont(ofSize: fontSize)
-        }
-        
-        if isItalic {
-            attributes[.obliqueness] = 0.3
-        }
+        // Combine Bold and Italic traits using UIFontDescriptor
+         var traits: UIFontDescriptor.SymbolicTraits = []
+         if isBold { traits.insert(.traitBold) }
+         if isItalic { traits.insert(.traitItalic) }
+        var baseFont = attributes[.font] as? UIFont ??  selectedFont.withWeight(selectedFontWeight).withSize(fontSize)
+         if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) {
+             baseFont = UIFont(descriptor: descriptor, size: fontSize)
+         }
+
+         attributes[.font] = baseFont
         
         if isUnderline {
             attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
@@ -113,21 +128,25 @@ public class RichTextEditorViewModel: ObservableObject {
     
     
     func toggleBold() {
+        saveStateForUndo()
         isBold.toggle()
         applyFormatting()
     }
-    
+
     func toggleItalic() {
+        saveStateForUndo()
         isItalic.toggle()
         applyFormatting()
     }
-    
+
     func toggleUnderline() {
+        saveStateForUndo()
         isUnderline.toggle()
         applyFormatting()
     }
-    
+
     func toggleStrikethrough() {
+        saveStateForUndo()
         isStrikethrough.toggle()
         applyFormatting()
     }
@@ -164,24 +183,26 @@ public class RichTextEditorViewModel: ObservableObject {
         applyFormatting()
     }
     
-    // MARK: - Undo and Redo
+    // MARK: - Undo & Redo
     func saveStateForUndo() {
-        undoStack.append(text)
-        redoStack.removeAll() // Clear redo stack whenever a new action is performed
+        if undoStack.last != text {
+            undoStack.append(text) // Save current text state
+            redoStack.removeAll() // Clear redoStack on new action
+        }
     }
+
     
     func undo() {
         guard let lastState = undoStack.popLast() else { return }
-        redoStack.append(text)
-        text = lastState
-    }
-    
-    func redo() {
-        guard let lastState = redoStack.popLast() else { return }
-        undoStack.append(text)
-        text = lastState
+        redoStack.append(text) // Save current state to redoStack
+        text = lastState // Restore the previous state
     }
 
+    func redo() {
+        guard let nextState = redoStack.popLast() else { return }
+        undoStack.append(text) // Save current state to undoStack
+        text = nextState // Restore the redone state
+    }
     
     func alignLeft() {
         applyParagraphStyle { style in
@@ -201,14 +222,91 @@ public class RichTextEditorViewModel: ObservableObject {
         }
     }
     
-    func addBulletList() {
-        let bullet = "• "
-        addListPrefix(bullet)
+    // MARK: - Add Bullet at the New Line
+    // Toggles circle bullets
+    func toggleBulletList() {
+        if isBulletingActive {
+            resetBulletState()
+
+        } else {
+            isBulletingActive = true
+            isNumberedBulletActive = false
+            moveToNextLineAndAddBullet()
+        }
+        
     }
-    
-    func addNumberedList() {
-        let number = "1. " // Update dynamically for numbers
-        addListPrefix(number)
+
+    // Toggles numbered bullets
+    func toggleNumberedList() {
+        if isBulletingActive && isNumberedBulletActive {
+            resetBulletState()
+        } else {
+            isBulletingActive = true
+            isNumberedBulletActive = true
+            moveToNextLineAndAddBullet()
+        }
+        
+    }
+
+    // Stops bulleting state
+    func resetBulletState() {
+        isBulletingActive = false
+        isNumberedBulletActive = false
+        currentBulletNumber = 1
+    }
+
+    // Move to the next line and insert the first bullet
+    private func moveToNextLineAndAddBullet() {
+        let mutableText = NSMutableAttributedString(attributedString: text)
+        let cursorPosition = selectedRange.location
+
+        // Add newline + bullet text
+        let bulletText = isNumberedBulletActive ? "\n\(currentBulletNumber). " : "\n• "
+        if isNumberedBulletActive { currentBulletNumber += 1 }
+
+        mutableText.insert(NSAttributedString(string: bulletText), at: cursorPosition)
+
+        // Update text and set cursor position after bullet
+        text = mutableText
+        selectedRange = NSRange(location: cursorPosition + bulletText.count, length: 0)
+    }
+
+    // Inserts the next bullet or stops bulleting on empty line or double space
+    func handleBulletOnReturnKey(at cursorPosition: Int) {
+        let mutableText = NSMutableAttributedString(attributedString: text)
+        let textLength = mutableText.length
+
+        // Check for double Enter or double Space
+        if cursorPosition >= 2 {
+            let safeRange = NSRange(location: cursorPosition - 2, length: 2)
+            if safeRange.upperBound <= textLength {
+                let lastTwoChars = (mutableText.string as NSString).substring(with: safeRange)
+                
+                if lastTwoChars == "\n\n" || lastTwoChars == "  " {
+                    resetBulletState() // Stop bulleting
+                    return
+                }
+            }
+        }
+
+        // Add the next bullet if bulleting is active
+        if isBulletingActive {
+            let bulletText: String
+            if isNumberedBulletActive {
+                bulletText = "\n\(currentBulletNumber). "
+                currentBulletNumber += 1
+            } else {
+                bulletText = "\n• "
+            }
+
+            // Safely insert the bullet at the cursor position
+            let safePosition = min(cursorPosition, textLength)
+            mutableText.insert(NSAttributedString(string: bulletText), at: safePosition)
+
+            // Update text and cursor position
+            text = mutableText
+            selectedRange = NSRange(location: safePosition + bulletText.count, length: 0)
+        }
     }
     
     func indent() {
@@ -238,9 +336,44 @@ public class RichTextEditorViewModel: ObservableObject {
            updateText(with: attributedCodeSnippet)
        }
     
-    func addQuote() {
-        let quote = NSAttributedString(string: "\"Quote\"", attributes: [.font: UIFont.italicSystemFont(ofSize: fontSize)])
-        text = NSMutableAttributedString(attributedString: text).appending(attributedString: quote)
+    func toggleQuote() {
+        saveStateForUndo()
+        
+        let mutableText = NSMutableAttributedString(attributedString: text)
+        let cursorPosition = selectedRange.location
+        
+        if selectedRange.length > 0 {
+            // Wrap selected text with quotes
+            let selectedText = (mutableText.string as NSString).substring(with: selectedRange)
+            let quotedText = "\"\(selectedText)\""
+            mutableText.replaceCharacters(in: selectedRange, with: quotedText)
+            
+            // Apply formatting to the quoted text
+            let updatedRange = NSRange(location: selectedRange.location, length: quotedText.count)
+            applyQuoteFormatting(to: mutableText, in: updatedRange)
+            
+            // Move cursor inside the quotes
+            selectedRange = NSRange(location: selectedRange.location + 1, length: selectedText.count)
+        } else {
+            // Insert quotes at cursor position
+            mutableText.insert(NSAttributedString(string: "\"\""), at: cursorPosition)
+            
+            // Apply formatting to the empty quotes
+            let updatedRange = NSRange(location: cursorPosition, length: 2)
+            applyQuoteFormatting(to: mutableText, in: updatedRange)
+            
+            // Move cursor inside the quotes
+            selectedRange = NSRange(location: cursorPosition + 1, length: 0)
+        }
+        
+        text = mutableText
+    }
+    
+    private func applyQuoteFormatting(to text: NSMutableAttributedString, in range: NSRange) {
+        text.addAttributes([
+            .foregroundColor: UIColor.systemGray, // Custom color for quotes
+            .font: UIFont.italicSystemFont(ofSize: 14) // Italic font for quotes
+        ], range: range)
     }
     
     /// Toggles the visibility of the Image Picker dropdown
@@ -279,25 +412,101 @@ public class RichTextEditorViewModel: ObservableObject {
     func applyFormatting() {
         guard selectedRange.location != NSNotFound else { return }
 
-        // Clamp the range to valid bounds of the text
         let clampedRange = NSRange(
             location: min(selectedRange.location, text.length),
             length: min(selectedRange.length, text.length - selectedRange.location)
         )
 
         saveStateForUndo()
-
-        // Update current attributes with selected font family and weight
         var updatedAttributes = currentAttributes
 
-        if let fontName = selectedFontFamily as String?,
-           let newFont = UIFont(name: fontName, size: UIFont.systemFontSize)?.withWeight(selectedFontWeight) {
-            updatedAttributes[.font] = newFont
+        // Combine bold and italic traits dynamically
+        var currentFont = updatedAttributes[.font] as? UIFont ?? UIFont.systemFont(ofSize: fontSize)
+        currentFont = fontWithTraits(baseFont: currentFont, bold: isBold, italic: isItalic)
+        updatedAttributes[.font] = currentFont
+
+        // Underline and Strikethrough
+        if isUnderline {
+            updatedAttributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        } else {
+            updatedAttributes.removeValue(forKey: .underlineStyle)
+        }
+        if isStrikethrough {
+            updatedAttributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        } else {
+            updatedAttributes.removeValue(forKey: .strikethroughStyle)
         }
 
         let mutableText = NSMutableAttributedString(attributedString: text)
         mutableText.addAttributes(updatedAttributes, range: clampedRange)
         text = mutableText
+
+    }
+    
+    private func resetFormattingStates() {
+        isBold = false
+        isItalic = false
+        isUnderline = false
+        isStrikethrough = false
+    }
+    
+    
+    func fontWithTraits(baseFont: UIFont, bold: Bool, italic: Bool) -> UIFont {
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if bold { traits.insert(.traitBold) }
+        if italic { traits.insert(.traitItalic) }
+
+        guard let descriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) else {
+            return baseFont
+        }
+        return UIFont(descriptor: descriptor, size: baseFont.pointSize)
+    }
+    
+    func updateTypingAttributes(for textView: UITextView) {
+        var attributes: [NSAttributedString.Key: Any] = [:]
+        var baseFont = UIFont.systemFont(ofSize: fontSize)
+        
+        // Combine Bold and Italic traits
+        baseFont = fontWithTraits(baseFont: baseFont, bold: isBold, italic: isItalic)
+        attributes[.font] = baseFont
+
+        // Apply underline and strikethrough
+        if isUnderline {
+            attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
+        if isStrikethrough {
+            attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        }
+
+        // Update the textView's typing attributes
+        textView.typingAttributes = attributes
+    }
+    
+    
+    var activeAttributes: [NSAttributedString.Key: Any] {
+        var attributes: [NSAttributedString.Key: Any] = [:]
+        var baseFont = UIFont.systemFont(ofSize: fontSize)
+
+        // Apply Bold and Italic traits
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if isBold { traits.insert(.traitBold) }
+        if isItalic { traits.insert(.traitItalic) }
+        
+        if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) {
+            baseFont = UIFont(descriptor: descriptor, size: fontSize)
+        }
+
+        attributes[.font] = baseFont
+
+        // Apply Underline and Strikethrough
+        if isUnderline {
+            attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
+        if isStrikethrough {
+            attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        }
+
+        return attributes
     }
     
     private func applyParagraphStyle(_ update: (NSMutableParagraphStyle) -> Void) {
@@ -314,17 +523,40 @@ public class RichTextEditorViewModel: ObservableObject {
         text = updatedText
     }
     
-    func addHyperlink() {
-          let url = "https://example.com"
-          let hyperlink = NSAttributedString(
-              string: "Hyperlink",
-              attributes: [
-                  .link: URL(string: url)!,
-                  .underlineStyle: NSUnderlineStyle.single.rawValue
-              ]
-          )
-          text = NSMutableAttributedString(attributedString: text).appending(attributedString: hyperlink)
-      }
+    func addHyperlink(urlString: String) {
+        guard selectedRange.length > 0 else { return }
+        
+        var validURLString = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Add scheme if missing
+        if !validURLString.lowercased().hasPrefix("http://") && !validURLString.lowercased().hasPrefix("https://") {
+            validURLString = "https://\(validURLString)"
+        }
+        
+        // Validate the URL
+        guard let url = URL(string: validURLString) else { return }
+        
+        saveStateForUndo()
+        
+        let mutableText = NSMutableAttributedString(attributedString: text)
+        
+        // Apply hyperlink attributes to the selected range
+        mutableText.addAttributes([
+            .link: url,
+//            .foregroundColor: hyperlinkColorFromCOnfig,
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ], range: selectedRange)
+        
+        // Insert a non-hyperlinked space after the selected range
+        let space = NSAttributedString(string: " ", attributes: [:])
+        let insertionIndex = selectedRange.location + selectedRange.length
+        mutableText.insert(space, at: insertionIndex)
+        
+        text = mutableText
+        
+        // Move the cursor to just after the inserted space
+        selectedRange = NSRange(location: insertionIndex + 1, length: 0)
+    }
 
       func styleAngleBrackets() {
           let regex = try! NSRegularExpression(pattern: "<.*?>")
@@ -389,26 +621,44 @@ extension RichTextEditorViewModel {
            let hyperlinkText = selectedRange.length > 0 ? (text.string as NSString).substring(with: selectedRange) : "Hyperlink"
            let attributedHyperlink = NSAttributedString(
                string: hyperlinkText,
-               attributes: [.link: URL(string: urlString)!, .underlineStyle: NSUnderlineStyle.single.rawValue]
+               attributes: [.link: URL(string: urlString)!,/*.foregroundColor: hyperlinkColorFromCOnfig,*/ .underlineStyle: NSUnderlineStyle.single.rawValue]
            )
            updateText(with: attributedHyperlink)
        }
 
-    func styleHashtags() {
-          guard selectedRange.length > 0 else { return }
-          saveStateForUndo()
+    func toggleHashtag() {
+        saveStateForUndo()
+        
+        let mutableText = NSMutableAttributedString(attributedString: text)
+        let cursorPosition = selectedRange.location
 
-          let selectedText = (text.string as NSString).substring(with: selectedRange)
-          guard isValidHashtag(selectedText) else { return }
-
-          let mutableText = NSMutableAttributedString(attributedString: text)
-          mutableText.addAttributes([
-              .foregroundColor: UIColor.systemBlue,
-              .font: UIFont.boldSystemFont(ofSize: UIFont.systemFontSize)
-          ], range: selectedRange)
-          text = mutableText
-      }
-
+        if selectedRange.length > 0 {
+            // Wrap selected text with a hashtag
+            let selectedText = (mutableText.string as NSString).substring(with: selectedRange)
+            let hashtaggedText = "#\(selectedText)"
+            mutableText.replaceCharacters(in: selectedRange, with: hashtaggedText)
+            
+            // Apply formatting to the hashtag
+            let updatedRange = NSRange(location: selectedRange.location, length: hashtaggedText.count)
+            applyHashtagFormatting(to: mutableText, in: updatedRange)
+            
+            selectedRange = NSRange(location: selectedRange.location + 1, length: selectedText.count)
+        } else {
+            // Insert "#" at the cursor position
+            let hashtag = NSAttributedString(string: "#", attributes: [:])
+            mutableText.insert(hashtag, at: cursorPosition)
+            selectedRange = NSRange(location: cursorPosition + 1, length: 0)
+        }
+        
+        text = mutableText
+    }
+    
+    private func applyHashtagFormatting(to text: NSMutableAttributedString, in range: NSRange) {
+        text.addAttributes([
+            .foregroundColor: UIColor.darkGray,//hashtagColorFromConfig,
+            .font: selectedFont.withWeight(selectedFontWeight).withSize(fontSize)
+        ], range: range)
+    }
 
        // Helper: Update selected text or append if no selection
        private func updateText(with attributedString: NSAttributedString) {
@@ -424,3 +674,87 @@ extension RichTextEditorViewModel {
        }
     
 }
+
+//MARK: - textViewDidChange and - textViewDidChangeSelection
+extension RichTextEditorViewModel {
+    
+    func applyRealTimeHashtagFormatting(to text: NSMutableAttributedString, hashtagColor: UIColor, cursorPosition: Int) {
+        let fullText = text.string as NSString
+        let hashtagRegex = try! NSRegularExpression(pattern: "#\\w+", options: [])
+
+        // Step 1: Detect hashtags
+        let matches = hashtagRegex.matches(in: fullText as String, options: [], range: NSRange(location: 0, length: fullText.length))
+
+        // Step 2: Iterate over all detected hashtags
+        for match in matches {
+            let hashtagRange = match.range
+
+            // Protect the hashtag if the cursor is inside or immediately after it
+            if NSLocationInRange(cursorPosition - 1, hashtagRange) {
+                let safeRange = NSRange(location: cursorPosition - 1, length: 1)
+                if safeRange.upperBound <= text.length {
+                    text.removeAttribute(.foregroundColor, range: safeRange)
+                    text.removeAttribute(.font, range: safeRange)
+                }
+            }
+
+            // Step 3: Reapply hashtag formatting
+            text.addAttributes([
+//                .foregroundColor: hashtagColor,
+                .font:  selectedFont.withWeight(selectedFontWeight).withSize(fontSize)
+            ], range: hashtagRange)
+        }
+    }
+    
+    func applyRealTimeQuoteFormatting(to text: NSMutableAttributedString) {
+        let fullText = text.string
+           var startQuoteIndex: Int? = nil
+
+           for (index, char) in fullText.enumerated() {
+               if char == "\"" {
+                   if let start = startQuoteIndex {
+                       // Found a closing quote, format the text between the quotes
+                       let range = NSRange(location: start + 1, length: index - start - 1)
+                       if range.length > 0 {
+                           text.addAttributes([
+                               .foregroundColor: UIColor.systemGray,
+                               .font:  selectedFont.withWeight(selectedFontWeight).withSize(fontSize)
+                           ], range: range)
+                       }
+                       startQuoteIndex = nil // Reset
+                   } else {
+                       // Found an opening quote
+                       startQuoteIndex = index
+                   }
+               }
+           }
+    }
+    
+    func handleHyperlinkRemoval(mutableText: NSMutableAttributedString, cursorPosition: Int, textView: UITextView, hyperlinkColor: UIColor) {
+        // If cursor is within or just after a hyperlink, remove hyperlink attribute
+        if cursorPosition > 0 {
+            let previousAttributes = mutableText.attributes(at: cursorPosition - 1, effectiveRange: nil)
+
+            if previousAttributes[.link] != nil {
+                let rangeToRemove = NSRange(location: cursorPosition - 1, length: 1)
+                mutableText.removeAttribute(.link, range: rangeToRemove)
+            }
+        }
+
+        // Re-apply hyperlink color formatting for remaining hyperlinks
+        mutableText.enumerateAttribute(.link, in: NSRange(location: 0, length: mutableText.length), options: []) { value, range, _ in
+            if value != nil {
+                mutableText.addAttributes([
+//                    .foregroundColor: hyperlinkColor,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue
+                ], range: range)
+            }
+        }
+
+        // Update the textView
+        textView.attributedText = mutableText
+        textView.selectedRange = NSRange(location: cursorPosition, length: 0) // Adjust cursor position
+    }
+    
+}
+

@@ -69,6 +69,12 @@ struct PickerSheetsModifier: ViewModifier {
                 FontPickerDropdownView(viewModel: viewModel)
             }
         }
+        .sheet(isPresented: $viewModel.isHyperlinkPromptPresented) {
+            HyperlinkInputView(url: $viewModel.hyperlinkURL) {
+                viewModel.addHyperlink(urlString: viewModel.hyperlinkURL)
+                viewModel.isHyperlinkPromptPresented = false
+            }
+        }
     }
 
     // MARK: - Helpers

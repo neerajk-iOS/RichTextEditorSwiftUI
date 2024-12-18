@@ -38,8 +38,7 @@ public struct RichTextField: UIViewRepresentable {
         textView.isScrollEnabled = true
         textView.attributedText = text
         textView.font = UIFont.preferredFont(forTextStyle: .body)
-        textView.backgroundColor = .clear
-        
+//        textView.backgroundColor = config.textFieldBackgroundColor // Apply background color
         // Attach the toolbar as the input accessory view.
         let toolbar = RichTextToolbar(viewModel: viewModel, config: config).toToolbar(of: config.toolbarHeight)
         textView.inputAccessoryView = toolbar
@@ -84,18 +83,62 @@ public struct RichTextField: UIViewRepresentable {
         /// - Parameter textView: The `UITextView` whose selection has changed.
         public func textViewDidChangeSelection(_ textView: UITextView) {
             let newRange = textView.selectedRange
-            if NSLocationInRange(newRange.location, NSRange(location: 0, length: textView.text.count)) {
+            let textLength = textView.text.count
+            
+            // Update ViewModel's selected range
+            if newRange.location <= textLength {
                 parent.viewModel.selectedRange = newRange
             } else {
-                parent.viewModel.selectedRange = NSRange(location: 0, length: 0)
+                parent.viewModel.selectedRange = NSRange(location: textLength, length: 0)
             }
+            
+            // Dynamically update typingAttributes using currentAttributes
+            textView.typingAttributes = parent.viewModel.currentAttributes
         }
         
+
         /// Notifies when the text view's content changes.
         ///
         /// - Parameter textView: The `UITextView` whose content has changed.
         public func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.attributedText
+            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+            let cursorPosition = min(textView.selectedRange.location, mutableText.length)
+
+            // Save state for Undo tracking
+            parent.viewModel.saveStateForUndo()
+
+            // Handle Return key for bullet logic
+            if cursorPosition > 0 {
+                let previousCharRange = NSRange(location: cursorPosition - 1, length: 1)
+                if previousCharRange.upperBound <= mutableText.length {
+                    let previousChar = (mutableText.string as NSString).substring(with: previousCharRange)
+                    if previousChar == "\n" && parent.viewModel.isBulletingActive{
+                        parent.viewModel.handleBulletOnReturnKey(at: cursorPosition)
+                        textView.attributedText = parent.viewModel.text
+                        textView.selectedRange = parent.viewModel.selectedRange
+                        return
+                    }
+                }
+            }
+
+            // Apply real-time features
+            parent.viewModel.applyRealTimeHashtagFormatting(
+                to: mutableText,
+                hashtagColor: parent.config.hashtagColor,
+                cursorPosition: cursorPosition
+            )
+            parent.viewModel.applyRealTimeQuoteFormatting(to: mutableText)
+             parent.viewModel.handleHyperlinkRemoval(
+                 mutableText: mutableText,
+                 cursorPosition: cursorPosition,
+                 textView: textView,
+                 hyperlinkColor: parent.config.hyperlinkColor
+             )
+            // Safely update the textView
+            textView.attributedText = mutableText
+            textView.selectedRange = NSRange(location: min(cursorPosition, mutableText.length), length: 0)
+            parent.text = mutableText
         }
     }
+    
 }
