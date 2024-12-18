@@ -5,6 +5,7 @@
 //  Created by Neeraj Kumar on 13/12/24.
 //
 import Foundation
+import UIKit
 
     // MARK: - Extensions
 extension NSMutableAttributedString {
