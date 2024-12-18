@@ -101,21 +101,25 @@ public struct RichTextToolbarConfig {
     public struct ButtonConfig: Identifiable, Hashable {
         public let id = UUID()
         public let type: ButtonType
-        public let icon: String
+        public let defaultIcon: String
         public let buttonType: ButtonBehavior
         public let tint: Color
         public let size: CGSize
+        public let icon: String? // Add this property to support custom images
 
         public init(type: ButtonType,
                     icon: String? = nil,
+                    defaultIcon: String? = nil,
                     buttonType: ButtonBehavior = .normal,
                     tint: Color = .primary,
-                    size: CGSize = CGSize(width: 24, height: 24)) {
+                    size: CGSize = CGSize(width: 16, height: 16)) {
             self.type = type
-            self.icon = icon ?? type.defaultIcon
+            self.defaultIcon = defaultIcon ?? type.defaultIcon
             self.buttonType = buttonType
             self.tint = tint
             self.size = size
+            self.icon = icon
+
         }
     }
 
@@ -130,7 +134,7 @@ public struct RichTextToolbarConfig {
       public var spacing: CGFloat
 
       public init(buttonGroups: [[ButtonConfig]] = [],
-                  toolbarHeight: CGFloat = 50,
+                  toolbarHeight: CGFloat = 32,
                   spacing: CGFloat = 8) {
           self.buttonGroups = buttonGroups
           self.toolbarHeight = toolbarHeight

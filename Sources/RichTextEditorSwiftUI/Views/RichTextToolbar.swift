@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+
 /// A customizable toolbar for managing rich text editor actions.
 ///
 /// The `RichTextToolbar` dynamically renders button groups, dropdowns,
@@ -25,21 +26,36 @@ public struct RichTextToolbar: View {
     }
 
     public var body: some View {
-        VStack(spacing: 8) { // Stack button groups vertically
+        VStack( alignment: .leading,spacing: 4) { // Adjust spacing for better alignment
             ForEach(config.buttonGroups.indices, id: \.self) { groupIndex in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: config.spacing) { // Arrange buttons horizontally within each group
-                        ForEach(config.buttonGroups[groupIndex], id: \.id) { buttonConfig in
-                            toolbarButton(for: buttonConfig)
-                        }
+                // Check content width to disable ScrollView if not needed
+                let buttonCount = config.buttonGroups[groupIndex].count
+                let totalWidth = CGFloat(buttonCount) * 36.0 + CGFloat(buttonCount - 1) * config.spacing
+
+                if totalWidth > UIScreen.main.bounds.width - 32 { // Enable scrolling if buttons overflow
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        toolbarButtonRow(for: groupIndex)
                     }
+                    .padding(.horizontal, 4)
+                } else {
+                    toolbarButtonRow(for: groupIndex) // Disable scrolling
+                        .padding(.horizontal, 4)
                 }
             }
         }
-        .frame(height: config.toolbarHeight)
-        .background(Color(UIColor.systemGray6))
+        .frame(minHeight: config.toolbarHeight, maxHeight: config.toolbarHeight)
         .cornerRadius(8)
-        .padding(.horizontal)
+        .padding(.horizontal, 8)
+    }
+    
+    // MARK: - Helper for Button Rows
+    private func toolbarButtonRow(for groupIndex: Int) -> some View {
+        HStack(spacing: config.spacing) {
+            ForEach(config.buttonGroups[groupIndex], id: \.id) { buttonConfig in
+                toolbarButton(for: buttonConfig)
+            }
+        }
+        .frame(minHeight: 32) // Ensure minimum button height
     }
 
     // MARK: - Private Helper Methods
@@ -71,10 +87,18 @@ public struct RichTextToolbar: View {
            return Button(action: {
                handleAction(for: buttonConfig.type)
            }) {
-               Image(systemName: buttonConfig.icon)
-                   .resizable()
-                   .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                   .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
+               
+               if let image = buttonConfig.icon {
+                   Image(image)
+                       .resizable()
+                       .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                       .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
+               } else {
+                   Image(systemName: buttonConfig.defaultIcon)
+                       .resizable()
+                       .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                       .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
+               }
            }
            .buttonStyle(PlainButtonStyle())
     }
@@ -109,15 +133,63 @@ public struct RichTextToolbar: View {
 
             } else {
                 Button(action: {
-                    handleDropdownAction(for: buttonConfig.type)
-                }) {
-                    Image(systemName: buttonConfig.icon)
-                        .resizable()
-                        .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                        .foregroundColor(buttonConfig.tint)
-                }
+                     handleDropdownAction(for: buttonConfig.type)
+                 }) {
+                     HStack(spacing: 6) {
+                         if let image = buttonConfig.icon {
+                             Image(image)
+                                 .resizable()
+                                 .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                         } else {
+                             
+                             HStack {
+                                 // Display the current selected value dynamically
+                                 if currentValue(for: buttonConfig.type) == "" {
+                                     Image(systemName: buttonConfig.defaultIcon)
+                                         .resizable()
+                                         .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                                         .foregroundColor(buttonConfig.tint)
+                                     
+                                    
+                                 } else {
+                                     Text(currentValue(for: buttonConfig.type))
+                                         .font(.system(size: 16))
+                                         .foregroundColor(.primary)
+                                         .lineLimit(1)
+                                         .minimumScaleFactor(0.7)
+                                 }
+                             }
+                             .padding(2)
+                             
+                         }
+                         Image(systemName: "chevron.down")
+                             .resizable()
+                             .frame(width: 12, height: 8)
+                     }
+                 }
+                 .buttonStyle(PlainButtonStyle())
             }
         }
+    }
+    
+    /// Retrieves the current value for the dropdown type.
+    private func currentValue(for type: RichTextToolbarConfig.ButtonType) -> String {
+        switch type {
+        case .fontPicker:
+            return getFontWeightName()
+        case .textColorPicker:
+            return "Color" // You can return a color name or value
+        case .backgroundColorPicker:
+            return "Background"
+        case .cIndentMenu:
+            return "Indent"
+        default:
+            return ""
+        }
+    }
+
+    private func getFontWeightName() -> String {
+        return viewModel.fontWeights.first(where: { $0.value == viewModel.selectedFontWeight })?.key ?? "Regular"
     }
     
     /// Handles dropdown button actions to toggle their visibility states.
@@ -144,14 +216,22 @@ public struct RichTextToolbar: View {
                 Button(action: {
                     handleAction(for: menuButton.type)
                 }) {
-                    Label(menuButton.type.displayName, systemImage: menuButton.icon)
+                    Label(menuButton.type.displayName, systemImage: menuButton.defaultIcon)
                 }
             }
         } label: {
-            Image(systemName: "line.horizontal.3")
-                .resizable()
-                .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                .foregroundColor(buttonConfig.tint)
+            
+            if let image = buttonConfig.icon {
+                Image(image)
+                    .resizable()
+                    .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+            } else {
+                
+                Image(systemName: "line.horizontal.3")
+                    .resizable()
+                    .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                    .foregroundColor(buttonConfig.tint)
+            }
         }
     }
 
