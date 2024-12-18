@@ -53,28 +53,3 @@ struct ColorPickerDropdownView: View {
         .ignoresSafeArea()
     }
 }
-
-//struct ColorPickerView: View {
-//    @State private var selectedColor: Color = .black
-//    @Binding var isPresented: Bool  // Binding to control the visibility of the sheet
-//    var onColorSelected: (UIColor) -> Void
-//    
-//    var body: some View {
-//        VStack {
-//                // SwiftUI ColorPicker
-//            ColorPicker("Select Color", selection: $selectedColor)
-//                .padding()
-//            
-//            Button("Select Color") {
-//                    // Convert SwiftUI Color to UIColor and call the callback
-//                let uiColor = UIColor(selectedColor)
-//                onColorSelected(uiColor)
-//                
-//                    // Close the color picker sheet
-//                isPresented = false
-//            }
-//            .padding()
-//        }
-//        .padding()
-//    }
-//}

@@ -51,13 +51,8 @@ public struct RichTextView: View {
                       .padding()
             
         }
-        .background(Color(UIColor.systemGroupedBackground).edgesIgnoringSafeArea(.all))
         .modifier(PickerSheetsModifier(viewModel: viewModel, config: PickerSheetConfig()))
-//        .task{
-//            viewModel.hyperlinkColorFromCOnfig = toolbarConfig.hyperlinkColor
-//            viewModel.hashtagColorFromConfig = toolbarConfig.hashtagColor
-//
-//        }
+
     }
 }
 
