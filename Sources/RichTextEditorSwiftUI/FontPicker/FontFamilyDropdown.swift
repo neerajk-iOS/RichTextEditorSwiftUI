@@ -9,7 +9,14 @@ import SwiftUI
 /// A dropdown component for selecting font families.
 struct FontFamilyDropdown: View {
     @ObservedObject var viewModel: RichTextEditorViewModel
+    let config: RichTextToolbarConfig
 
+    private var availableFontFamilies: [String] {
+        let systemFonts = UIFont.familyNames
+        let projectFonts = config.projectFonts
+        return (systemFonts + projectFonts).sorted()
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Font Family")

@@ -45,4 +45,24 @@ struct FontWeightDropdown: View {
             }
         }
     }
+    
+    private func weightsForFont(_ fontName: String) -> [UIFont.Weight] {
+        guard let baseFont = UIFont(name: fontName, size: UIFont.systemFontSize) else {
+            return []
+        }
+
+        let availableWeights: [UIFont.Weight] = [
+            .ultraLight, .thin, .light, .regular, .medium, .semibold, .bold, .heavy, .black
+        ]
+        
+        var supportedWeights: [UIFont.Weight] = []
+        
+        for weight in availableWeights {
+            if let testFont = UIFont(name: fontName, size: UIFont.systemFontSize)?.withWeight(weight) {
+                // If font creation succeeds with the weight, add to supported weights
+                supportedWeights.append(weight)
+            }
+        }
+        return supportedWeights
+    }
 }

@@ -91,9 +91,17 @@ public struct RichTextField: UIViewRepresentable {
             } else {
                 parent.viewModel.selectedRange = NSRange(location: textLength, length: 0)
             }
-            
-            // Dynamically update typingAttributes using currentAttributes
-            textView.typingAttributes = parent.viewModel.currentAttributes
+            // Update typing attributes dynamically
+            if parent.viewModel.isCodeSnippetActive {
+                textView.typingAttributes = [
+                    .font: UIFont(name: "Courier", size: 14) ??
+                    UIFont.systemFont(ofSize: 14, weight: .light),
+                    .backgroundColor: UIColor.white,
+                    .foregroundColor: UIColor.lightGray
+                ]
+            } else {
+                textView.typingAttributes = parent.viewModel.typingAttributes
+            }
         }
         
 
@@ -124,15 +132,13 @@ public struct RichTextField: UIViewRepresentable {
             // Apply real-time features
             parent.viewModel.applyRealTimeHashtagFormatting(
                 to: mutableText,
-                hashtagColor: parent.config.hashtagColor,
-                cursorPosition: cursorPosition
+                hashtagColor: parent.config.hashtagColor
             )
             parent.viewModel.applyRealTimeQuoteFormatting(to: mutableText)
              parent.viewModel.handleHyperlinkRemoval(
                  mutableText: mutableText,
                  cursorPosition: cursorPosition,
-                 textView: textView,
-                 hyperlinkColor: parent.config.hyperlinkColor
+                 textView: textView
              )
             // Safely update the textView
             textView.attributedText = mutableText

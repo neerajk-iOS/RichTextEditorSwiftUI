@@ -14,7 +14,7 @@ import SwiftUI
 struct PickerSheetsModifier: ViewModifier {
     @ObservedObject var viewModel: RichTextEditorViewModel
     var config: PickerSheetConfig
-
+    var toolbarConfig: RichTextToolbarConfig
     func body(content: Content) -> some View {
         ZStack {
             content
@@ -66,14 +66,17 @@ struct PickerSheetsModifier: ViewModifier {
         }
         .sheet(isPresented: $viewModel.showFontPickerMenu) {
             adaptiveSheet {
-                FontPickerDropdownView(viewModel: viewModel)
+                FontPickerDropdownView(viewModel: viewModel, config: toolbarConfig)
             }
         }
         .sheet(isPresented: $viewModel.isHyperlinkPromptPresented) {
-            HyperlinkInputView(url: $viewModel.hyperlinkURL) {
-                viewModel.addHyperlink(urlString: viewModel.hyperlinkURL)
-                viewModel.isHyperlinkPromptPresented = false
+            adaptiveSheet {
+                HyperlinkInputView(url: $viewModel.hyperlinkURL, selectedRangeLength: viewModel.selectedRange.length) { urlString, linkText in
+                            viewModel.addHyperlink(urlString: urlString, linkText: linkText)
+                            viewModel.isHyperlinkPromptPresented = false
+                        }
             }
+           
         }
     }
 
@@ -97,7 +100,8 @@ struct PickerSheetsModifier: ViewModifier {
                 .padding()
         }
         .presentationDetents(config.detents)
-        .presentationDragIndicator(.visible)
-        .background(config.backgroundColor)
+        .presentationDragIndicator(.hidden)
+        .background(TransparentBackgroundView()) // Add transparent background view
     }
 }
+

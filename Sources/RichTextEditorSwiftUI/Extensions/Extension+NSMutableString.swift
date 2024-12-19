@@ -6,7 +6,6 @@
 //
 import Foundation
 import UIKit
-
     // MARK: - Extensions
 extension NSMutableAttributedString {
     func appending(attributedString: NSAttributedString) -> NSMutableAttributedString {
@@ -15,7 +14,6 @@ extension NSMutableAttributedString {
         return copy
     }
 }
-
 
 public extension NSAttributedString {
     static func richContentExample() -> NSAttributedString {

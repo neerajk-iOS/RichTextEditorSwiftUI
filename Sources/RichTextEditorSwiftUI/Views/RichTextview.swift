@@ -47,11 +47,10 @@ public struct RichTextView: View {
             // Render the rich text editor
             RichTextField(text: $viewModel.text, config: toolbarConfig)
                       .environmentObject(viewModel)
-                      .background(Color.white)
                       .padding()
-            
+                      .background(Color.white)
         }
-        .modifier(PickerSheetsModifier(viewModel: viewModel, config: PickerSheetConfig()))
+        .modifier(PickerSheetsModifier(viewModel: viewModel, config: PickerSheetConfig(), toolbarConfig: toolbarConfig))
 
     }
 }

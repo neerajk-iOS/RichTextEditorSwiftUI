@@ -14,7 +14,7 @@ import SwiftUI
 public struct RichTextToolbar: View {
     @ObservedObject var viewModel: RichTextEditorViewModel
     let config: RichTextToolbarConfig
-
+    
     /// Initializes the toolbar with a view model and configuration.
     ///
     /// - Parameters:
@@ -24,22 +24,22 @@ public struct RichTextToolbar: View {
         self.viewModel = viewModel
         self.config = config
     }
-
+    
     public var body: some View {
-        VStack( alignment: .leading,spacing: 4) { // Adjust spacing for better alignment
+        VStack( alignment: .leading,spacing: 8) { // Adjust spacing for better alignment
             ForEach(config.buttonGroups.indices, id: \.self) { groupIndex in
                 // Check content width to disable ScrollView if not needed
                 let buttonCount = config.buttonGroups[groupIndex].count
                 let totalWidth = CGFloat(buttonCount) * 36.0 + CGFloat(buttonCount - 1) * config.spacing
-
-                if totalWidth > UIScreen.main.bounds.width - 32 { // Enable scrolling if buttons overflow
+                
+                if totalWidth > UIScreen.main.bounds.width - 36 { // Enable scrolling if buttons overflow
                     ScrollView(.horizontal, showsIndicators: false) {
                         toolbarButtonRow(for: groupIndex)
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 8)
                 } else {
                     toolbarButtonRow(for: groupIndex) // Disable scrolling
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 8)
                 }
             }
         }
@@ -55,11 +55,11 @@ public struct RichTextToolbar: View {
                 toolbarButton(for: buttonConfig)
             }
         }
-        .frame(minHeight: 32) // Ensure minimum button height
+        .frame(minHeight: 36) // Ensure minimum button height
     }
-
+    
     // MARK: - Private Helper Methods
-
+    
     /// Renders a button based on its type (normal, dropdown, or menu).
     private func toolbarButton(for buttonConfig: RichTextToolbarConfig.ButtonConfig) -> some View {
         switch buttonConfig.buttonType {
@@ -71,41 +71,56 @@ public struct RichTextToolbar: View {
             return AnyView(menuButton(for: buttonConfig, menuButtons: menuButtons))
         }
     }
-
+    
     /// Creates a normal button.
     private func normalButton(for buttonConfig: RichTextToolbarConfig.ButtonConfig) -> some View {
         
         let isActive: Bool
-           switch buttonConfig.type {
-           case .bold: isActive = viewModel.isBold
-           case .italic: isActive = viewModel.isItalic
-           case .underline: isActive = viewModel.isUnderline
-           case .strikethrough: isActive = viewModel.isStrikethrough
-           default: isActive = false
-           }
-
-           return Button(action: {
-               handleAction(for: buttonConfig.type)
-           }) {
-               
-               if let image = buttonConfig.icon {
-                   Image(image)
-                       .resizable()
-                       .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                       .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
-               } else {
-                   Image(systemName: buttonConfig.defaultIcon)
-                       .resizable()
-                       .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                       .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
-               }
-           }
-           .buttonStyle(PlainButtonStyle())
+        switch buttonConfig.type {
+        case .bold: isActive = viewModel.isBold
+        case .italic: isActive = viewModel.isItalic
+        case .underline: isActive = viewModel.isUnderline
+        case .strikethrough: isActive = viewModel.isStrikethrough
+        case .codeSnippet: isActive = viewModel.isCodeSnippetActive
+        case .numberedList: isActive = viewModel.isNumberedBulletActive
+        case .bulletList: isActive = viewModel.isBulletingActive
+        case .hashtags: isActive = viewModel.isHashtagEnabled
+        default: isActive = false
+        }
+        
+        return Button(action: {
+            handleAction(for: buttonConfig.type)
+        }) {
+            VStack {
+                if let image = buttonConfig.icon {
+                    Image(image)
+                        .resizable()
+                        .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                } else {
+                    Image(systemName: buttonConfig.defaultIcon)
+                        .resizable()
+                        .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                        .foregroundColor(isActive ? .blue : buttonConfig.tint) // Highlight active state
+                }
+                if isActive {
+                    ButotnHighlightView(color: Color.blue)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
-
+    
     /// Creates a dropdown button for different dropdown configurations.
     private func dropdownButton(for buttonConfig: RichTextToolbarConfig.ButtonConfig, subButtons: [RichTextToolbarConfig.ButtonConfig]) -> some View {
-        ZStack {
+        
+        let isActive: Bool
+        switch buttonConfig.type {
+        case .fontPicker: isActive = viewModel.isFontPickerMenuVisible
+        case .textColorPicker: isActive = viewModel.isTextColorPickerVisible
+            
+        default: isActive = false
+        }
+        return ZStack {
             if buttonConfig.type == .textColorPicker && viewModel.showingTextColorPicker {
                 VStack {
                     ColorPickerDropdownView(viewModel: viewModel, isBackground: false) {
@@ -130,44 +145,50 @@ public struct RichTextToolbar: View {
                     Spacer()
                 }
                 .transition(.move(edge: .bottom))
-
+                
             } else {
-                Button(action: {
-                     handleDropdownAction(for: buttonConfig.type)
-                 }) {
-                     HStack(spacing: 6) {
-                         if let image = buttonConfig.icon {
-                             Image(image)
-                                 .resizable()
-                                 .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                         } else {
-                             
-                             HStack {
-                                 // Display the current selected value dynamically
-                                 if currentValue(for: buttonConfig.type) == "" {
-                                     Image(systemName: buttonConfig.defaultIcon)
-                                         .resizable()
-                                         .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                                         .foregroundColor(buttonConfig.tint)
-                                     
-                                    
-                                 } else {
-                                     Text(currentValue(for: buttonConfig.type))
-                                         .font(.system(size: 16))
-                                         .foregroundColor(.primary)
-                                         .lineLimit(1)
-                                         .minimumScaleFactor(0.7)
-                                 }
-                             }
-                             .padding(2)
-                             
-                         }
-                         Image(systemName: "chevron.down")
-                             .resizable()
-                             .frame(width: 12, height: 8)
-                     }
-                 }
-                 .buttonStyle(PlainButtonStyle())
+                VStack{
+                    Button(action: {
+                        handleDropdownAction(for: buttonConfig.type)
+                    }) {
+                        HStack(spacing: 8) {
+                            if let image = buttonConfig.icon {
+                                Image(image)
+                                    .resizable()
+                                    .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                            } else {
+                                
+                                HStack {
+                                    // Display the current selected value dynamically
+                                    if currentValue(for: buttonConfig.type) == "" {
+                                        Image(systemName: buttonConfig.defaultIcon)
+                                            .resizable()
+                                            .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                                            .foregroundColor(buttonConfig.tint)
+                                        
+                                        
+                                    } else {
+                                        Text(currentValue(for: buttonConfig.type))
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.7)
+                                    }
+                                }
+                                .padding(2)
+                                
+                            }
+                            Image(systemName: "chevron.down")
+                                .resizable()
+                                .frame(width: 12, height: 8)
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    if isActive {
+                        ButotnHighlightView(color: Color.blue)
+                    }
+                }
+                
             }
         }
     }
@@ -187,9 +208,9 @@ public struct RichTextToolbar: View {
             return ""
         }
     }
-
+    
     private func getFontWeightName() -> String {
-        return viewModel.fontWeights.first(where: { $0.value == viewModel.selectedFontWeight })?.key ?? "Regular"
+        return viewModel.selectedFontStyle ?? "Body"
     }
     
     /// Handles dropdown button actions to toggle their visibility states.
@@ -208,10 +229,18 @@ public struct RichTextToolbar: View {
             break
         }
     }
-
+    
     /// Creates a menu button.
     private func menuButton(for buttonConfig: RichTextToolbarConfig.ButtonConfig, menuButtons: [RichTextToolbarConfig.ButtonConfig]) -> some View {
-        Menu {
+        let isActive: Bool
+        switch buttonConfig.type {
+        case .cIndentMenu: isActive = viewModel.showCIndentMenu
+        case .insertImage: isActive = viewModel.showingImagePickerDropdown
+        case .textColorPicker: isActive = viewModel.showingTextColorPicker || viewModel.showingBackgroundColorPicker
+            
+        default: isActive = false
+        }
+        return Menu {
             ForEach(menuButtons) { menuButton in
                 Button(action: {
                     handleAction(for: menuButton.type)
@@ -220,21 +249,25 @@ public struct RichTextToolbar: View {
                 }
             }
         } label: {
-            
-            if let image = buttonConfig.icon {
-                Image(image)
-                    .resizable()
-                    .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-            } else {
-                
-                Image(systemName: "line.horizontal.3")
-                    .resizable()
-                    .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
-                    .foregroundColor(buttonConfig.tint)
+            VStack {
+                if let image = buttonConfig.icon {
+                    Image(image)
+                        .resizable()
+                        .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+                } else {
+                    
+                    Image(systemName: "line.horizontal.3")
+                        .resizable()
+                        .frame(width: buttonConfig.size.width, height: buttonConfig.size.height)
+//                        .foregroundColor(buttonConfig.tint)
+                }
+                if isActive {
+                    ButotnHighlightView(color: Color.blue)
+                }
             }
         }
     }
-
+    
     /// Handles the action triggered by a button press.
     private func handleAction(for type: RichTextToolbarConfig.ButtonType) {
         switch type {
@@ -250,7 +283,9 @@ public struct RichTextToolbar: View {
         case .bulletList: viewModel.toggleBulletList()
         case .numberedList: viewModel.toggleNumberedList()
         case .addQuote: viewModel.toggleQuote()
-        case .codeSnippet: viewModel.addCodeSnippet()
+        case .codeSnippet:
+            viewModel.isCodeSnippetActive.toggle()
+            viewModel.toggleCodeSnippet()
         case .insertImage: viewModel.toggleImagePickerDropdown()
         case .cameraPicker: viewModel.showCameraPicker()
         case .photoLibraryPicker:  viewModel.showPhotoLibraryPicker()
@@ -260,8 +295,13 @@ public struct RichTextToolbar: View {
         case .hyperlink:
             viewModel.isHyperlinkPromptPresented = true
             viewModel.hyperlinkURL = "" // Reset previous URL input
+            
+        case .hashtags:
+            viewModel.isHashtagEnabled.toggle()
+            if viewModel.isHashtagEnabled {
+                viewModel.toggleHashtag()
 
-        case .hashtags: viewModel.toggleHashtag()
+            }
         case .angleBrackets: viewModel.styleAngleBrackets()
         case .fontPicker: viewModel.showFontPickerMenu.toggle()
         case .cIndentMenu: viewModel.showCIndentMenu.toggle()

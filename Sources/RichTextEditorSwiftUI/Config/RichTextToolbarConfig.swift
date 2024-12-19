@@ -11,13 +11,25 @@ public struct RichTextToolbarConfig {
     
     // New properties for customization
       public var hashtagColor: UIColor = .systemBlue
-      public var hyperlinkColor: UIColor = .systemRed
+      public var hyperlinkColor: UIColor = .systemBlue
       public var textFieldBackgroundColor: UIColor = .white
+    
+    public var availableFontPickers: [FontPickerType] = [.style] // Default to style picker
+
+       public enum FontPickerType {
+           case family
+           case weight
+           case style
+       }
+
+       public var projectFonts: [String] = [] // Names of custom fonts available in the project
     
     public init(
            buttonGroups: [[ButtonConfig]] = [],
-           toolbarHeight: CGFloat = 50,
+           toolbarHeight: CGFloat = 52,
            spacing: CGFloat = 8,
+           availableFontPickers: [FontPickerType] = [.style],
+           projectFonts: [String] = [],
            hashtagColor: UIColor = .lightGray,
            hyperlinkColor: UIColor = .link,
            textFieldBackgroundColor: UIColor = .white
@@ -25,6 +37,8 @@ public struct RichTextToolbarConfig {
            self.buttonGroups = buttonGroups
            self.spacing = spacing
            self.toolbarHeight = toolbarHeight
+           self.availableFontPickers = availableFontPickers
+           self.projectFonts = projectFonts
            self.hashtagColor = hashtagColor
            self.hyperlinkColor = hyperlinkColor
            self.textFieldBackgroundColor = textFieldBackgroundColor
@@ -134,7 +148,7 @@ public struct RichTextToolbarConfig {
       public var spacing: CGFloat
 
       public init(buttonGroups: [[ButtonConfig]] = [],
-                  toolbarHeight: CGFloat = 32,
+                  toolbarHeight: CGFloat = 36,
                   spacing: CGFloat = 8) {
           self.buttonGroups = buttonGroups
           self.toolbarHeight = toolbarHeight
@@ -142,3 +156,4 @@ public struct RichTextToolbarConfig {
       }
     
 }
+

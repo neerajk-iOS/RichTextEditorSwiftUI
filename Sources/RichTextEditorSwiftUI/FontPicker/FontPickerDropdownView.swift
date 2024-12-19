@@ -12,16 +12,23 @@ import SwiftUI
 /// inline within a toolbar dropdown context, offering a compact and intuitive design.
 struct FontPickerDropdownView: View {
     @ObservedObject var viewModel: RichTextEditorViewModel
-    
+    let config: RichTextToolbarConfig
+
     // MARK: - Body
     var body: some View {
         VStack(spacing: 8) {
-            // Font Family Picker
-            FontFamilyDropdown(viewModel: viewModel)
             
-            // Font Weight Picker
-            FontWeightDropdown(viewModel: viewModel)
-            
+            VStack {
+                      if config.availableFontPickers.contains(.family) {
+                          FontFamilyDropdown(viewModel: viewModel, config: config)
+                      }
+                      if config.availableFontPickers.contains(.weight) {
+                          FontWeightDropdown(viewModel: viewModel)
+                      }
+                      if config.availableFontPickers.contains(.style) {
+                          FontStyleDropdown(viewModel: viewModel)
+                      }
+                  }
             // Done Button
             Button(action: {
                 viewModel.applyFormatting()
